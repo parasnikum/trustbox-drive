@@ -1,0 +1,33 @@
+{
+  "name": "trustbox-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@auth0/auth0-react": "^2.27.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "axios": "^1.6.7",
+    "lucide-react": "^0.344.0",
+    "mammoth": "^1.12.3",
+    "marked": "^18.0.13",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "zustand": "^4.5.1"
+  },
+  "devDependencies": {
+    "@types/marked": "^5.0.2",
+    "@types/react": "^18.2.56",
+    "@types/react-dom": "^18.2.19",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.6.1",
+    "postcss": "^8.5.28",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.3.3",
+    "vite": "^5.1.4"
+  }
+}

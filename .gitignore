@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production / Build Output
+dist/
+build/
+out/
+
+# Environment variables & secrets
+.env
+.env*
+!.env.example
+*.env
+*.lnk
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Physical storage & runtime data
+storage_uploads/
+backend/storage_uploads/
+data/
+backend/data/
+*.sqlite
+*.sqlite3
+*.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# IDE & Editor files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Testing & Coverage
+coverage/
+.nyc_output/
+
+# Docker volumes & local data
+.docker/

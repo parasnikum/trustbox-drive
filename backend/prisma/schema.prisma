@@ -1,0 +1,237 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "linux-musl", "debian-openssl-3.0.x"]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         String   @default("USER") // USER, ADMIN
+  storageQuota BigInt   @default(2147483648) // 2 GB default free plan
+  storageUsed  BigInt   @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  folders Folders[]
+  files   Files[]
+  sessions UserSession[]
+  ownedWorkspaces Workspace[] @relation("OwnedWorkspaces")
+  workspaceMemberships WorkspaceMember[]
+}
+
+model UserSession {
+  id           String   @id @default(uuid())
+  userId       String
+  refreshToken String   @unique
+  userAgent    String?
+  ipAddress    String?
+  deviceName   String?
+  isRevoked    Boolean  @default(false)
+  expiresAt    DateTime
+  lastActiveAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Folders {
+  id          String    @id @default(uuid())
+  ownerId     String
+  workspaceId String?
+  parentId    String?
+  name        String
+  path        String    @default("/")
+  isTrash     Boolean   @default(false)
+  isStarred   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parent    Folders?   @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Folders[]  @relation("FolderHierarchy")
+  files     Files[]
+}
+
+model Files {
+  id          String    @id @default(uuid())
+  ownerId     String
+  workspaceId String?
+  parentId    String?
+  name        String
+  mimeType    String
+  size        BigInt
+  checksum    String
+  isTrash     Boolean   @default(false)
+  isStarred   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  owner     User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  workspace Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parent    Folders?       @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  versions  FileVersions[]
+  shares    ShareLinks[]
+}
+
+model FileVersions {
+  id              String   @id @default(uuid())
+  fileId          String
+  versionNumber   Int
+  storageObjectId String
+  size            BigInt
+  checksum        String
+  createdAt       DateTime @default(now())
+
+  file          Files          @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  storageObject StorageObjects @relation(fields: [storageObjectId], references: [id])
+}
+
+model StorageObjects {
+  id                   String    @id @default(uuid())
+  storageLocationId    String
+  objectKey            String
+  size                 BigInt
+  checksum             String
+  etag                 String?
+  cachedDownloadUrl    String?
+  downloadUrlExpiresAt DateTime?
+  createdAt            DateTime  @default(now())
+
+  location StorageLocations @relation(fields: [storageLocationId], references: [id])
+  versions FileVersions[]
+}
+
+model StorageLocations {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  provider  String   // R2, MINIO, S3
+  endpoint  String?
+  bucket    String?
+  region    String?
+  status    String   @default("ONLINE") // ONLINE, DEGRADED, OFFLINE, DRAINING
+  capacity  BigInt   @default(107374182400) // 100 GB
+  used      BigInt   @default(0)
+  priority  Int      @default(1)
+  isDefault Boolean  @default(false)
+  classAOps BigInt   @default(0) // Track Class A Operations (PutObject, UploadPart)
+  classBOps BigInt   @default(0) // Track Class B Operations (GetObject, HeadObject)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  objects StorageObjects[]
+}
+
+model ShareLinks {
+  id           String    @id @default(uuid())
+  fileId       String?
+  folderId     String?
+  token        String    @unique
+  permission   String    @default("VIEWER") // VIEWER, EDITOR
+  visibility   String    @default("PUBLIC") // PUBLIC, RESTRICTED
+  passwordHash String?
+  expiresAt    DateTime?
+  createdById  String
+  createdAt    DateTime  @default(now())
+  revokedAt    DateTime?
+
+  file    Files?         @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  members ShareMembers[]
+}
+
+model ShareMembers {
+  id         String   @id @default(uuid())
+  shareId    String
+  email      String
+  permission String   @default("VIEWER")
+  createdAt  DateTime @default(now())
+
+  share ShareLinks @relation(fields: [shareId], references: [id], onDelete: Cascade)
+}
+
+model ChangeEvents {
+  sequence   Int      @id @default(autoincrement())
+  id         String   @default(uuid())
+  userId     String
+  eventType  String   // file.created, file.updated, file.deleted, file.moved, folder.created, etc.
+  entityType String   // file, folder
+  entityId   String
+  payload    String   // JSON stringified payload
+  createdAt  DateTime @default(now())
+}
+
+model UploadSessions {
+  id                String   @id @default(uuid())
+  userId            String
+  workspaceId       String?
+  fileName          String
+  mimeType          String
+  size              BigInt
+  parentId          String?
+  storageLocationId String
+  storageObjectKey  String
+  uploadUrl         String?
+  status            String   @default("PENDING") // PENDING, COMPLETED, CANCELLED
+  createdAt         DateTime @default(now())
+  expiresAt         DateTime
+}
+
+model UserStorageAnalytics {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  documentsBytes BigInt   @default(0)
+  photosBytes    BigInt   @default(0)
+  videosBytes    BigInt   @default(0)
+  otherBytes     BigInt   @default(0)
+  totalUsedBytes BigInt   @default(0)
+  totalFileCount Int      @default(0)
+  isDirty        Boolean  @default(true)
+  lastCalculated DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Workspace {
+  id           String   @id @default(uuid())
+  name         String
+  description  String?
+  ownerId      String
+  storageQuota BigInt   @default(2147483648) // 2 GB default
+  storageUsed  BigInt   @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  owner   User              @relation("OwnedWorkspaces", fields: [ownerId], references: [id], onDelete: Cascade)
+  members WorkspaceMember[]
+  folders Folders[]
+  files   Files[]
+}
+
+model WorkspaceMember {
+  id          String   @id @default(uuid())
+  workspaceId String
+  userId      String?
+  email       String
+  role        String   @default("MEMBER") // OWNER, ADMIN, EDITOR, VIEWER, CUSTOM
+
+  // JSON-Based Permission Manager (Defaults to empty object `{}`)
+  // Any missing permission key automatically evaluates to false
+  permissions Json     @default("{}")
+
+  status    String   @default("ACTIVE") // ACTIVE, PENDING
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, email])
+}

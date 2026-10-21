@@ -1,0 +1,80 @@
+﻿services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: TrustBox_postgres
+    environment:
+      POSTGRES_USER: TrustBox
+      POSTGRES_PASSWORD: TrustBox_password
+      POSTGRES_DB: TrustBox_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U TrustBox -d TrustBox_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: TrustBox_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: TrustBox_minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadminpassword
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: TrustBox_backend
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      DATABASE_URL: "postgresql://TrustBox:TrustBox_password@postgres:5432/TrustBox_db?schema=public"
+      REDIS_URL: "redis://redis:6379"
+      JWT_SECRET: "super_secret_jwt_key_TrustBox_2026"
+      STORAGE_LOCAL_DIR: "./storage_uploads"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - backend_uploads:/app/storage_uploads
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: TrustBox_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  backend_uploads:

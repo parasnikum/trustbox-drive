@@ -1,0 +1,9 @@
+node_modules
+dist
+storage_uploads
+data
+.env
+.env*
+*.lnk
+*.log
+.git
